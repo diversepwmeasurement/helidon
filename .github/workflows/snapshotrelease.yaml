@@ -1,39 +1,36 @@
-# Perform a snapshot build and deploy to snapshot repository
-# Notes
-# - cannot run on Windows, as we use shell scripts
-
-name: "Snapshot Release"
-
-on:
-  workflow_dispatch:
-
-env:
-  JAVA_VERSION: '21'
-  JAVA_DISTRO: 'oracle'
-  MAVEN_HTTP_ARGS: '-Dmaven.wagon.httpconnectionManager.ttlSeconds=60 -Dmaven.wagon.http.retryHandler.count=3'
-
 concurrency:
-  group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
+  group: release-${{ github.workflow }}-${{ github.ref }}
+env:
+  JAVA_DISTRO: oracle
+  JAVA_VERSION: '21'
+  MAVEN_HTTP_ARGS: -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 -Dmaven.wagon.http.retryHandler.count=3
 jobs:
   deploy:
-    timeout-minutes: 60
-    runs-on: ubuntu-20.04
     environment: release
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: '0'
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4.1.0
-        with:
-          distribution: ${{ env.JAVA_DISTRO }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-      - name: Build and deploy
-        env:
-          MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
-          RELEASE_WORKFLOW: "true"
-        run: |
-          etc/scripts/release.sh deploy_snapshot
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: '0'
+    - continue-on-error: true
+      name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4.1.0
+      with:
+        cache: maven
+        distribution: ${{ env.JAVA_DISTRO }}
+        java-version: ${{ env.JAVA_VERSION }}
+    - continue-on-error: true
+      env:
+        MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
+        RELEASE_WORKFLOW: 'true'
+      name: Build and deploy
+      run: 'etc/scripts/release.sh deploy_snapshot
+
+        '
+    timeout-minutes: 60
+name: Snapshot Release
+on:
+  repository_dispatch:
+    types: trigger-ga___snapshotrelease.yaml

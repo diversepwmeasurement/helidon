@@ -1,16 +1,16 @@
-name: Assign Issue to Project
-
-on:
-  issues:
-    types: [opened, reopened]
 env:
   GITHUB_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-
-
 jobs:
   Assign-Issue-To-Backlog:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-      - run: etc/scripts/actions/assign-issue-to-project.sh $GITHUB_REPOSITORY ${{ github.event.issue.number }} Backlog Triage
+    - continue-on-error: true
+      name: Check out repository code
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      run: etc/scripts/actions/assign-issue-to-project.sh $GITHUB_REPOSITORY ${{ github.event.issue.number
+        }} Backlog Triage
+name: Assign Issue to Project
+on:
+  repository_dispatch:
+    types: trigger-ga___assign-issue-to-project.yml

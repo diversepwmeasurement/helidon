@@ -1,66 +1,69 @@
-# Notes
-# - cannot run on Windows, as we use shell scripts
-
-name: "Release"
-
-on:
-  push:
-    branches:
-      - 'release-*'
-env:
-  JAVA_VERSION: '21'
-  JAVA_DISTRO: 'oracle'
-  MAVEN_HTTP_ARGS: '-Dmaven.wagon.httpconnectionManager.ttlSeconds=60 -Dmaven.wagon.http.retryHandler.count=3'
-
 concurrency:
-  group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
+  group: release-${{ github.workflow }}-${{ github.ref }}
+env:
+  JAVA_DISTRO: oracle
+  JAVA_VERSION: '21'
+  MAVEN_HTTP_ARGS: -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 -Dmaven.wagon.http.retryHandler.count=3
 jobs:
   copyright:
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - continue-on-error: true
+      name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4.1.0
+      with:
+        cache: maven
+        distribution: ${{ env.JAVA_DISTRO }}
+        java-version: ${{ env.JAVA_VERSION }}
+    - continue-on-error: true
+      name: Copyright
+      run: etc/scripts/copyright.sh
     timeout-minutes: 10
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4.1.0
-        with:
-          distribution: ${{ env.JAVA_DISTRO }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-      - name: Copyright
-        run: etc/scripts/copyright.sh
   release:
-    timeout-minutes: 60
-    runs-on: ubuntu-20.04
     environment: release
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.SERVICE_ACCOUNT_TOKEN }}
-          fetch-depth: '0'
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4.1.0
-        with:
-          distribution: ${{ env.JAVA_DISTRO }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-      - name: Release
-        env:
-          GPG_PASSPHRASE: ${{ secrets.HELIDON_GPG_PASSPHRASE }}
-          GPG_PRIVATE_KEY: ${{ secrets.HELIDON_GPG_PRIVATE_KEY }}
-          GPG_PUBLIC_KEY: ${{ secrets.HELIDON_GPG_PUBLIC_KEY }}
-          MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
-          RELEASE_WORKFLOW: "true"
-        run: |
-          git config user.email "helidon-robot_ww@oracle.com"
-          git config user.name "Helidon Robot"
-          etc/scripts/release.sh release_build
-      - name: Upload Staged Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: io-helidon-artifacts-${{ github.ref_name }}
-          path: parent/target/nexus-staging/
-          retention-days: 90
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: '0'
+        token: ${{ secrets.SERVICE_ACCOUNT_TOKEN }}
+    - continue-on-error: true
+      name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4.1.0
+      with:
+        cache: maven
+        distribution: ${{ env.JAVA_DISTRO }}
+        java-version: ${{ env.JAVA_VERSION }}
+    - continue-on-error: true
+      env:
+        GPG_PASSPHRASE: ${{ secrets.HELIDON_GPG_PASSPHRASE }}
+        GPG_PRIVATE_KEY: ${{ secrets.HELIDON_GPG_PRIVATE_KEY }}
+        GPG_PUBLIC_KEY: ${{ secrets.HELIDON_GPG_PUBLIC_KEY }}
+        MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
+        RELEASE_WORKFLOW: 'true'
+      name: Release
+      run: 'git config user.email "helidon-robot_ww@oracle.com"
+
+        git config user.name "Helidon Robot"
+
+        etc/scripts/release.sh release_build
+
+        '
+    - continue-on-error: true
+      name: Upload Staged Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: io-helidon-artifacts-${{ github.ref_name }}
+        path: parent/target/nexus-staging/
+        retention-days: 90
+    timeout-minutes: 60
+name: Release
+on:
+  repository_dispatch:
+    types: trigger-ga___release.yaml
